@@ -1,4 +1,4 @@
-#
+
 # Copyright (C) 2018 Pico Technology Ltd. See LICENSE file for terms.
 #
 # PS3000A BLOCK MODE EXAMPLE
@@ -10,11 +10,14 @@ from picosdk.ps3000a import ps3000a as ps
 import numpy as np
 import matplotlib.pyplot as plt
 from picosdk.functions import adc2mV, assert_pico_ok
+# from pypicowrap.base import Picoscope, Channel
+
 
 # Create chandle and status ready for use
 status = {}
 chandle = ctypes.c_int16()
 
+# print(ps.name)
 # Opens the device/s
 status["openunit"] = ps.ps3000aOpenUnit(ctypes.byref(chandle), None)
 
@@ -63,8 +66,8 @@ status["trigger"] = ps.ps3000aSetSimpleTrigger(chandle, 1, 0, 2048, 0, 0, 0)
 assert_pico_ok(status["trigger"])
 
 # Setting the number of sample to be collected
-preTriggerSamples = 400
-postTriggerSamples = 400
+preTriggerSamples = 500
+postTriggerSamples = 500
 maxsamples = preTriggerSamples + postTriggerSamples
 
 # Gets timebase innfomation
@@ -74,16 +77,25 @@ maxsamples = preTriggerSamples + postTriggerSamples
 # TimeIntervalNanoseconds = ctypes.byref(timeIntervalns)
 # MaxSamples = ctypes.byref(returnedMaxSamples)
 # Segement index = 0
-timebase = 125001
+timebase = 125002
 timeIntervalns = ctypes.c_float()
 returnedMaxSamples = ctypes.c_int16()
-status["GetTimebase"] = ps.ps3000aGetTimebase2(chandle, timebase, maxsamples, ctypes.byref(timeIntervalns), 1, ctypes.byref(returnedMaxSamples), 0)
+status["GetTimebase"] = ps.ps3000aGetTimebase2(
+    chandle,
+    timebase,
+    maxsamples,
+    ctypes.byref(timeIntervalns),
+    1,
+    ctypes.byref(returnedMaxSamples),
+    0,
+)
 assert_pico_ok(status["GetTimebase"])
+print(timebase, timeIntervalns.value)
 
 # Creates a overlow location for data
 overflow = ctypes.c_int16()
 # Creates converted types maxsamples
-cmaxSamples = ctypes.c_int32(maxsamples)
+# cmaxSamples = ctypes.c_int32(maxsamples)
 
 # Starts the block capture
 # Handle = chandle
@@ -94,12 +106,16 @@ cmaxSamples = ctypes.c_int32(maxsamples)
 # Segment index = 0
 # LpRead = None
 # pParameter = None
-status["runblock"] = ps.ps3000aRunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, 1, None, 0, None, None)
+status["runblock"] = ps.ps3000aRunBlock(
+    chandle, preTriggerSamples, postTriggerSamples, timebase, 1, None, 0, None, None
+)
 assert_pico_ok(status["runblock"])
 
 # Create buffers ready for assigning pointers for data collection
 bufferAMax = (ctypes.c_int16 * maxsamples)()
-bufferAMin = (ctypes.c_int16 * maxsamples)() # used for downsampling which isn't in the scope of this example
+bufferAMin = (
+    ctypes.c_int16 * maxsamples
+)()  # used for downsampling which isn't in the scope of this example
 
 # Setting the data buffer location for data collection from channel A
 # Handle = Chandle
@@ -109,20 +125,23 @@ bufferAMin = (ctypes.c_int16 * maxsamples)() # used for downsampling which isn't
 # Buffer length = maxsamples
 # Segment index = 0
 # Ratio mode = ps3000A_Ratio_Mode_None = 0
-status["SetDataBuffers"] = ps.ps3000aSetDataBuffers(chandle, 0, ctypes.byref(bufferAMax), ctypes.byref(bufferAMin), maxsamples, 0, 0)
+status["SetDataBuffers"] = ps.ps3000aSetDataBuffers(
+    chandle, 0, ctypes.byref(bufferAMax), ctypes.byref(bufferAMin), maxsamples, 0, 0
+)
 assert_pico_ok(status["SetDataBuffers"])
 
 # Creates a overlow location for data
 overflow = (ctypes.c_int16 * 10)()
 # Creates converted types maxsamples
 cmaxSamples = ctypes.c_int32(maxsamples)
+print(cmaxSamples.value)
 
 # Checks data collection to finish the capture
 ready = ctypes.c_int16(0)
 check = ctypes.c_int16(0)
 while ready.value == check.value:
     status["isReady"] = ps.ps3000aIsReady(chandle, ctypes.byref(ready))
-
+print("ready")
 # Handle = chandle
 # start index = 0
 # noOfSamples = ctypes.byref(cmaxSamples)
@@ -131,7 +150,9 @@ while ready.value == check.value:
 # SegmentIndex = 0
 # Overflow = ctypes.byref(overflow)
 
-status["GetValues"] = ps.ps3000aGetValues(chandle, 0, ctypes.byref(cmaxSamples), 0, 0, 0, ctypes.byref(overflow))
+status["GetValues"] = ps.ps3000aGetValues(
+    chandle, 0, ctypes.byref(cmaxSamples), 0, 0, 0, ctypes.byref(overflow)
+)
 assert_pico_ok(status["GetValues"])
 
 # Finds the max ADC count
@@ -142,15 +163,18 @@ status["maximumValue"] = ps.ps3000aMaximumValue(chandle, ctypes.byref(maxADC))
 assert_pico_ok(status["maximumValue"])
 
 # Converts ADC from channel A to mV
-adc2mVChAMax =  adc2mV(bufferAMax, chARange, maxADC)
+adc2mVChAMax = adc2mV(bufferAMax, chARange, maxADC)
 
 # Creates the time data
-time = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
+print((cmaxSamples.value - 1) * timeIntervalns.value * 10**-9, cmaxSamples.value)
+time = np.linspace(
+    0, (cmaxSamples.value - 1) * timeIntervalns.value * 10**-9, cmaxSamples.value
+)
 
 # Plots the data from channel A onto a graph
 plt.plot(time, adc2mVChAMax[:])
-plt.xlabel('Time (ns)')
-plt.ylabel('Voltage (mV)')
+plt.xlabel("Time (s)")
+plt.ylabel("Voltage (mV)")
 plt.show()
 
 # Stops the scope
@@ -165,4 +189,3 @@ assert_pico_ok(status["close"])
 
 # Displays the staus returns
 print(status)
-

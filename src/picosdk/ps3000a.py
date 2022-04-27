@@ -6,9 +6,9 @@ This is a Python module defining the functions from the ps3000aApi.h C header
 file for PicoScope 3000 Series oscilloscopes using the ps3000a driver API
 functions.
 """
-
+from ctypes import WINFUNCTYPE as C_CALLBACK_FUNCTION_FACTORY
 from ctypes import *
-from picosdk.ctypes_wrapper import C_CALLBACK_FUNCTION_FACTORY
+# from picosdk.ctypes_wrapper import C_CALLBACK_FUNCTION_FACTORY
 from picosdk.library import Library
 from picosdk.constants import make_enum
 
